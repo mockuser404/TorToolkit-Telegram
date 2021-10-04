@@ -7,6 +7,7 @@ from ..core.getVars import get_val
 #      status is not properly disabled if task is_complete
 #      then the task is_active is false and etc
 
+
 class BaseStatus(ABC):
     QBIT = 0
     ARIA2 = 1
@@ -15,6 +16,7 @@ class BaseStatus(ABC):
     PYTDL = 4
     RCLUP = 5
     TGUP = 6
+
     def __init__(self):
         self.is_active = False
         self.is_inactive = False
@@ -34,18 +36,18 @@ class BaseStatus(ABC):
     def progress_bar(self, percentage):
         """Returns a progress bar for download
         """
-        #percentage is on the scale of 0-1
+        # percentage is on the scale of 0-1
         comp = get_val("COMPLETED_STR")
         ncomp = get_val("REMAINING_STR")
         pr = ""
 
-        for i in range(1,11):
+        for i in range(1, 11):
             if i <= int(percentage*10):
                 pr += comp
             else:
                 pr += ncomp
         return pr
-    
+
     @abstractmethod
     async def update_now(self):
         ...
@@ -53,7 +55,7 @@ class BaseStatus(ABC):
     @abstractmethod
     def get_type(self):
         ...
-    
+
     @abstractmethod
     def get_sender_id(self):
         ...

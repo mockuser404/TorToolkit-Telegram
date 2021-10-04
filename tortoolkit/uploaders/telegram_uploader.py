@@ -27,6 +27,7 @@ import math
 
 torlog = logging.getLogger(__name__)
 
+
 class TelegramUploader(BaseTask):
     class TelegramStatus:
         def __init__(self, files, uploaded_files=0, current_file="") -> None:
@@ -38,10 +39,8 @@ class TelegramUploader(BaseTask):
             self.current_total = 0
             self.current_speed = 0
             self.current_eta = ""
-            
 
-
-    def __init__(self, path, user_message, previous_task_msg=None, pyroclient = None):
+    def __init__(self, path, user_message, previous_task_msg=None, pyroclient=None):
         super().__init__()
 
         self._current_update = self.TelegramStatus(0)
@@ -54,11 +53,11 @@ class TelegramUploader(BaseTask):
         self.files_dict = {}
         self._user_db = UserDB()
         self._update_message = None
-        
 
     async def execute(self):
         if self._previous_task_msg is not None:
-            print("chat id",self._previous_task_msg.chat_id," id ",self._previous_task_msg.id)
+            print("chat id", self._previous_task_msg.chat_id,
+                  " id ", self._previous_task_msg.id)
             self._previous_task_msg = await self._client.get_messages(self._previous_task_msg.chat_id, ids=self._previous_task_msg.id)
             self._update_message = await self._previous_task_msg.edit("{}\nUploading the files...".format(self._previous_task_msg.text))
         else:
@@ -79,7 +78,7 @@ class TelegramUploader(BaseTask):
         status_mgr.set_inactive()
         await self.print_files()
         await clear_stuff(self._path)
-        
+
         return self.files_dict
 
     async def print_files(self):
@@ -89,14 +88,13 @@ class TelegramUploader(BaseTask):
             size = human_readable_bytes(self._path_size)
             msg += f"Uploaded Size:- {str(size)}\n\n"
 
-
         if len(self.files_dict) == 0:
             return
-        
+
         chat_id = self._user_message.chat_id
         msg_li = []
         for i in self.files_dict.keys():
-            
+
             link = f'https://t.me/c/{str(chat_id)[4:]}/{self.files_dict[i]}'
             if len(msg + f'🚩 <a href="{link}">{i}</a>\n') > 4000:
                 msg_li.append(msg)
@@ -105,16 +103,16 @@ class TelegramUploader(BaseTask):
                 msg += f'🚩 <a href="{link}">{i}</a>\n'
 
         for i in msg_li:
-            await self._user_message.reply(i,parse_mode="html")
+            await self._user_message.reply(i, parse_mode="html")
             await asyncio.sleep(1)
-            
-        await self._user_message.reply(msg,parse_mode="html")
 
-        #try:
+        await self._user_message.reply(msg, parse_mode="html")
+
+        # try:
         #    if thash is not None:
         #        from .store_info_hash import store_driver # pylint: disable=import-error
-        #        await store_driver(e, files, thash) 
-        #except:
+        #        await store_driver(e, files, thash)
+        # except:
         #    pass
 
         if len(self.files_dict) < 2:
@@ -123,16 +121,16 @@ class TelegramUploader(BaseTask):
         ids = list()
         for i in self.files_dict.keys():
             ids.append(self.files_dict[i])
-        
-        msgs = await self._client.get_messages(self._user_message.chat_id,ids=ids)
+
+        msgs = await self._client.get_messages(self._user_message.chat_id, ids=ids)
         for i in msgs:
             index = None
-            for j in range(0,len(msgs)):
+            for j in range(0, len(msgs)):
                 index = j
                 if ids[j] == i.id:
                     break
-            nextt,prev = "",""
-            
+            nextt, prev = "", ""
+
             chat_id = str(self._user_message.chat_id)[4:]
             buttons = []
             if index == 0:
@@ -153,7 +151,7 @@ class TelegramUploader(BaseTask):
                     KeyboardButtonUrl("Next", nextt)
                 )
                 nextt = f'<a href="{nextt}">Next</a>\n'
-                
+
                 prev = f'https://t.me/c/{chat_id}/{ids[index-1]}'
                 buttons.append(
                     KeyboardButtonUrl("Prev", prev)
@@ -161,17 +159,18 @@ class TelegramUploader(BaseTask):
                 prev = f'<a href="{prev}">Prev</a>\n'
 
             try:
-                #await i.edit("{} {} {}".format(prev,i.text,nextt),parse_mode="html")
+                # await i.edit("{} {} {}".format(prev,i.text,nextt),parse_mode="html")
                 await i.edit(buttons=buttons)
-            except:pass
+            except:
+                pass
             await asyncio.sleep(2)
 
-    async def upload_handel(self, message, path=None,from_in=False):
+    async def upload_handel(self, message, path=None, from_in=False):
         # creting here so connections are kept low
         if self._updb is None:
-            # Central object is not used its Acknowledged 
+            # Central object is not used its Acknowledged
             self._updb = TtkUpload()
-        
+
         if path is None:
             path = self._path
 
@@ -184,55 +183,58 @@ class TelegramUploader(BaseTask):
             directory_contents.sort()
             try:
                 # maybe way to refresh?!
-                message = await message.client.get_messages(message.chat_id,ids=[message.id])
+                message = await message.client.get_messages(message.chat_id, ids=[message.id])
                 message = message[0]
-            except:pass
+            except:
+                pass
 
             try:
-                message = await message.edit("{}\n\n**Found** {} **files for this Telegram Upload**".format(message.text,len(directory_contents)))
+                message = await message.edit("{}\n\n**Found** {} **files for this Telegram Upload**".format(message.text, len(directory_contents)))
             except:
-                torlog.warning("Too much folders will stop the editing of this message")
-            
+                torlog.warning(
+                    "Too much folders will stop the editing of this message")
+
             if not from_in:
-                self._updb.register_upload(message.chat_id,message.id)
+                self._updb.register_upload(message.chat_id, message.id)
                 if self._user_message is None:
                     sup_mes = await message.get_reply_message()
                 else:
                     sup_mes = self._user_message
-                
-                data = "upcancel {} {} {}".format(message.chat_id,message.id,sup_mes.sender_id)
-                buts = [KeyboardButtonCallback("Cancel upload.",data.encode("UTF-8"))]
+
+                data = "upcancel {} {} {}".format(
+                    message.chat_id, message.id, sup_mes.sender_id)
+                buts = [KeyboardButtonCallback(
+                    "Cancel upload.", data.encode("UTF-8"))]
                 message = await message.edit(buttons=buts)
 
-
             for file in directory_contents:
-                if self._updb.get_cancel_status(message.chat_id,message.id):
+                if self._updb.get_cancel_status(message.chat_id, message.id):
                     continue
 
                 await self.upload_handel(
                     message,
-                    os.path.join(path,file),
+                    os.path.join(path, file),
                     from_in=True
                 )
-            
+
             if not from_in:
-                if self._updb.get_cancel_status(message.chat_id,message.id):
+                if self._updb.get_cancel_status(message.chat_id, message.id):
                     self._is_canceled = True
                     self._is_done = True
-                    self._error_reason = "{} - Canceled By user.".format(message.text)
-                    await message.edit("{} - Canceled By user.".format(message.text),buttons=None)
+                    self._error_reason = "{} - Canceled By user.".format(
+                        message.text)
+                    await message.edit("{} - Canceled By user.".format(message.text), buttons=None)
                 else:
                     await message.edit(buttons=None)
-                self._updb.deregister_upload(message.chat_id,message.id)
+                self._updb.deregister_upload(message.chat_id, message.id)
 
         else:
             logging.info("Uploading the file:- {}".format(path))
             if os.path.getsize(path) > get_val("TG_UP_LIMIT"):
                 # the splitted file will be considered as a single upload ;)
-                
-                
+
                 metadata = extractMetadata(createParser(path))
-                
+
                 if metadata is not None:
                     # handle none for unknown
                     metadata = metadata.exportDictionary()
@@ -245,84 +247,91 @@ class TelegramUploader(BaseTask):
                     ftype = ftype.lower().strip()
                 else:
                     ftype = "unknown"
-                
-                if ftype == "video":    
-                    todel = await message.reply("**FILE LARGER THAN 2GB, SPLITTING NOW...**\n**Using Algo FFMPEG VIDEO SPLIT**") 
-                    split_dir = await video_helpers.split_file(path,get_val("TG_UP_LIMIT"))
+
+                if ftype == "video":
+                    todel = await message.reply("**FILE LARGER THAN 2GB, SPLITTING NOW...**\n**Using Algo FFMPEG VIDEO SPLIT**")
+                    split_dir = await video_helpers.split_file(path, get_val("TG_UP_LIMIT"))
                     await todel.delete()
                 else:
-                    todel = await message.reply("**FILE LARGER THAN 2GB, SPLITTING NOW...**\n**`Using Algo FFMPEG ZIP SPLIT`**") 
-                    split_dir = await zip7_utils.split_in_zip(path,get_val("TG_UP_LIMIT"))
+                    todel = await message.reply("**FILE LARGER THAN 2GB, SPLITTING NOW...**\n**`Using Algo FFMPEG ZIP SPLIT`**")
+                    split_dir = await zip7_utils.split_in_zip(path, get_val("TG_UP_LIMIT"))
                     await todel.delete()
-                
+
                 dircon = os.listdir(split_dir)
                 dircon.sort()
 
                 if not from_in:
-                    self._updb.register_upload(message.chat_id,message.id)
+                    self._updb.register_upload(message.chat_id, message.id)
                     if self._user_message is None:
                         sup_mes = await message.get_reply_message()
                     else:
                         sup_mes = self._user_message
 
-                    data = "upcancel {} {} {}".format(message.chat_id,message.id,sup_mes.sender_id)
-                    buts = [KeyboardButtonCallback("Cancel upload.",data.encode("UTF-8"))]
+                    data = "upcancel {} {} {}".format(
+                        message.chat_id, message.id, sup_mes.sender_id)
+                    buts = [KeyboardButtonCallback(
+                        "Cancel upload.", data.encode("UTF-8"))]
                     await message.edit(buttons=buts)
 
                 for file in dircon:
-                    if self._updb.get_cancel_status(message.chat_id,message.id):
+                    if self._updb.get_cancel_status(message.chat_id, message.id):
                         continue
-                
+
                     await self.upload_handel(
                         message,
-                        os.path.join(split_dir,file),
+                        os.path.join(split_dir, file),
                         from_in=True
                     )
-                
+
                 try:
                     shutil.rmtree(split_dir)
                     os.remove(path)
-                except:pass
-                
+                except:
+                    pass
+
                 if not from_in:
-                    if self._updb.get_cancel_status(message.chat_id,message.id):
+                    if self._updb.get_cancel_status(message.chat_id, message.id):
                         self._is_canceled = True
                         self._is_done = True
-                        self._error_reason = "{} - Canceled By user.".format(message.text)
-                        await message.edit("{} - Canceled By user.".format(message.text),buttons=None)
+                        self._error_reason = "{} - Canceled By user.".format(
+                            message.text)
+                        await message.edit("{} - Canceled By user.".format(message.text), buttons=None)
                     else:
                         await message.edit(buttons=None)
-                    self._updb.deregister_upload(message.chat_id,message.id)
+                    self._updb.deregister_upload(message.chat_id, message.id)
                 # spliting file logic blah blah
             else:
                 if not from_in:
-                    self._updb.register_upload(message.chat_id,message.id)
+                    self._updb.register_upload(message.chat_id, message.id)
                     if self._user_message is None:
                         sup_mes = await message.get_reply_message()
                     else:
                         sup_mes = self._user_message
 
-                    data = "upcancel {} {} {}".format(message.chat_id,message.id,sup_mes.sender_id)
-                    buts = [KeyboardButtonCallback("Cancel upload.",data.encode("UTF-8"))]
+                    data = "upcancel {} {} {}".format(
+                        message.chat_id, message.id, sup_mes.sender_id)
+                    buts = [KeyboardButtonCallback(
+                        "Cancel upload.", data.encode("UTF-8"))]
                     await message.edit(buttons=buts)
-                #print(updb)
+                # print(updb)
                 if black_list_exts(path):
                     self._num_files += 1
-                    self._up_file_name =os.path.basename(path)
+                    self._up_file_name = os.path.basename(path)
                     sentmsg = None
                 else:
-                    sentmsg = await self.upload_a_file(path,message)
+                    sentmsg = await self.upload_a_file(path, message)
 
                 if not from_in:
-                    if self._updb.get_cancel_status(message.chat_id,message.id):
+                    if self._updb.get_cancel_status(message.chat_id, message.id):
                         self._is_canceled = True
                         self._is_done = True
-                        self._error_reason = "{} - Canceled By user.".format(message.text)
+                        self._error_reason = "{} - Canceled By user.".format(
+                            message.text)
 
-                        await message.edit("{} - Canceled By user.".format(message.text),buttons=None)
+                        await message.edit("{} - Canceled By user.".format(message.text), buttons=None)
                     else:
                         await message.edit(buttons=None)
-                    self._updb.deregister_upload(message.chat_id,message.id)
+                    self._updb.deregister_upload(message.chat_id, message.id)
 
                 if sentmsg is not None:
                     self._up_file_name = os.path.basename(path)
@@ -332,19 +341,19 @@ class TelegramUploader(BaseTask):
     async def upload_a_file(self, path, message):
         if get_val("EXPRESS_UPLOAD"):
             return await self.upload_single_file(path, message)
-        
+
         queue = self._client.queue
         if self._updb is not None:
-            if self._updb.get_cancel_status(message.chat_id,message.id):
+            if self._updb.get_cancel_status(message.chat_id, message.id):
                 # add os remove here
                 return None
         if not os.path.exists(path):
             return None
-            
+
         if self._user_message is None:
             self._user_message = await message.get_reply_message()
-        
-        #todo improve this uploading ✔️
+
+        # todo improve this uploading ✔️
         file_name = os.path.basename(path)
         caption_str = ""
         caption_str += "<code>"
@@ -352,7 +361,7 @@ class TelegramUploader(BaseTask):
         caption_str += "</code>"
         metadata = extractMetadata(createParser(path))
         ometa = metadata
-        
+
         if metadata is not None:
             # handle none for unknown
             metadata = metadata.exportDictionary()
@@ -365,49 +374,53 @@ class TelegramUploader(BaseTask):
             ftype = ftype.lower().strip()
         else:
             ftype = "unknown"
-        #print(metadata)
-        
+        # print(metadata)
 
-              
-        data = "upcancel {} {} {}".format(message.chat_id,message.id,self._user_message.sender_id)
-        buts = [KeyboardButtonCallback("Cancel upload.",data.encode("UTF-8"))]
-        msg = await message.reply("**Uploading:** `{}`".format(file_name),buttons=buts)
+        data = "upcancel {} {} {}".format(
+            message.chat_id, message.id, self._user_message.sender_id)
+        buts = [KeyboardButtonCallback("Cancel upload.", data.encode("UTF-8"))]
+        msg = await message.reply("**Uploading:** `{}`".format(file_name), buttons=buts)
 
         uploader_id = None
         if queue is not None:
             torlog.info(f"Waiting for the worker here for {file_name}")
             msg = await msg.edit(f"{msg.text}\nWaiting for uploaders to get free... ")
             uploader_id = await queue.get()
-            torlog.info(f"Waiting over for the worker here for {file_name} aquired worker {uploader_id}")
+            torlog.info(
+                f"Waiting over for the worker here for {file_name} aquired worker {uploader_id}")
 
         out_msg = None
         start_time = time.time()
         tout = get_val("EDIT_SLEEP_SECS")
         opath = path
-        
+
         if self._user_message is not None:
-            dis_thumb = self._user_db.get_variable("DISABLE_THUMBNAIL", self._user_message.sender_id)
+            dis_thumb = self._user_db.get_variable(
+                "DISABLE_THUMBNAIL", self._user_message.sender_id)
             if dis_thumb is False or dis_thumb is None:
-                thumb_path = self._user_db.get_thumbnail(self._user_message.sender_id)
+                thumb_path = self._user_db.get_thumbnail(
+                    self._user_message.sender_id)
                 if not thumb_path:
                     thumb_path = None
-        
+
         try:
             if get_val("FAST_UPLOAD"):
                 torlog.info("Fast upload is enabled")
-                with open(path,"rb") as filee:
-                    path = await upload_file(message.client,filee,file_name,
-                    lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb)
-                    )
+                with open(path, "rb") as filee:
+                    path = await upload_file(message.client, filee, file_name,
+                                             lambda c, t: self.progress_for_telethon(
+                                                 c, t, msg, file_name, start_time, tout, message, self._updb)
+                                             )
 
             if self._user_message is not None:
-                force_docs = self._user_db.get_variable("FORCE_DOCUMENTS",self._user_message.sender_id)  
+                force_docs = self._user_db.get_variable(
+                    "FORCE_DOCUMENTS", self._user_message.sender_id)
             else:
                 force_docs = None
-            
+
             if force_docs is None:
                 force_docs = get_val("FORCE_DOCUMENTS")
-            
+
             if ftype == "video" and not force_docs:
                 try:
                     if thumb_path is not None:
@@ -418,7 +431,7 @@ class TelegramUploader(BaseTask):
                     thumb = None
                     torlog.exception("Error in thumb")
                 try:
-                    attrs, _ = get_attributes(opath,supports_streaming=True)
+                    attrs, _ = get_attributes(opath, supports_streaming=True)
                     out_msg = await msg.client.send_file(
                         msg.to_id,
                         file=path,
@@ -427,12 +440,14 @@ class TelegramUploader(BaseTask):
                         caption=caption_str,
                         reply_to=message.id,
                         supports_streaming=True,
-                        progress_callback=lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb),
+                        progress_callback=lambda c, t: self.progress_for_telethon(
+                            c, t, msg, file_name, start_time, tout, message, self._updb),
                         attributes=attrs
                     )
                 except VideoContentTypeInvalidError:
-                    attrs, _ = get_attributes(opath,force_document=True)
-                    torlog.warning("Streamable file send failed fallbacked to document.")
+                    attrs, _ = get_attributes(opath, force_document=True)
+                    torlog.warning(
+                        "Streamable file send failed fallbacked to document.")
                     out_msg = await msg.client.send_file(
                         msg.to_id,
                         file=path,
@@ -441,7 +456,8 @@ class TelegramUploader(BaseTask):
                         thumb=thumb,
                         reply_to=message.id,
                         force_document=True,
-                        progress_callback=lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb),
+                        progress_callback=lambda c, t: self.progress_for_telethon(
+                            c, t, msg, file_name, start_time, tout, message, self._updb),
                         attributes=attrs
                     )
                 except Exception:
@@ -455,12 +471,13 @@ class TelegramUploader(BaseTask):
                     parse_mode="html",
                     caption=caption_str,
                     reply_to=message.id,
-                    progress_callback=lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb),
+                    progress_callback=lambda c, t: self.progress_for_telethon(
+                        c, t, msg, file_name, start_time, tout, message, self._updb),
                     attributes=attrs
                 )
             else:
                 if force_docs:
-                    attrs, _ = get_attributes(opath,force_document=True)
+                    attrs, _ = get_attributes(opath, force_document=True)
                     out_msg = await msg.client.send_file(
                         msg.to_id,
                         file=path,
@@ -468,7 +485,8 @@ class TelegramUploader(BaseTask):
                         caption=caption_str,
                         reply_to=message.id,
                         force_document=True,
-                        progress_callback=lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb),
+                        progress_callback=lambda c, t: self.progress_for_telethon(
+                            c, t, msg, file_name, start_time, tout, message, self._updb),
                         attributes=attrs,
                         thumb=thumb_path
                     )
@@ -480,7 +498,8 @@ class TelegramUploader(BaseTask):
                         parse_mode="html",
                         caption=caption_str,
                         reply_to=message.id,
-                        progress_callback=lambda c,t: self.progress_for_telethon(c,t,msg,file_name,start_time,tout,message,self._updb),
+                        progress_callback=lambda c, t: self.progress_for_telethon(
+                            c, t, msg, file_name, start_time, tout, message, self._updb),
                         attributes=attrs,
                         thumb=thumb_path
                     )
@@ -495,7 +514,7 @@ class TelegramUploader(BaseTask):
             if queue is not None:
                 await queue.put(uploader_id)
                 torlog.info(f"Freed uploader with id {uploader_id}")
-                    
+
         try:
             os.remove(opath)
         except:
@@ -504,17 +523,17 @@ class TelegramUploader(BaseTask):
             return None
         if out_msg.id != msg.id:
             await msg.delete()
-        
+
         return out_msg
 
     async def upload_single_file(self, path, message):
         if self._updb is not None:
-            if self._updb.get_cancel_status(message.chat_id,message.id):
+            if self._updb.get_cancel_status(message.chat_id, message.id):
                 # add os remove here
                 return None
         if not os.path.exists(path):
             return None
-        
+
         queue = message.client.exqueue
 
         file_name = os.path.basename(path)
@@ -527,18 +546,19 @@ class TelegramUploader(BaseTask):
             self._user_message = await message.get_reply_message()
 
         if self._user_message is not None:
-            force_docs = self._user_db.get_variable("FORCE_DOCUMENTS",self._user_message.sender_id)  
+            force_docs = self._user_db.get_variable(
+                "FORCE_DOCUMENTS", self._user_message.sender_id)
         else:
             force_docs = None
-            
+
         if force_docs is None:
             force_docs = get_val("FORCE_DOCUMENTS")
-        
+
         # Avoid Flood in Express
         await asyncio.sleep(5)
 
         metadata = extractMetadata(createParser(path))
-        
+
         if metadata is not None:
             # handle none for unknown
             metadata = metadata.exportDictionary()
@@ -559,31 +579,36 @@ class TelegramUploader(BaseTask):
         start_time = time.time()
         #
         thumb_image_path = None
-        
+
         if self._user_message is not None:
-            dis_thumb = self._user_db.get_variable("DISABLE_THUMBNAIL", self._user_message.sender_id)
+            dis_thumb = self._user_db.get_variable(
+                "DISABLE_THUMBNAIL", self._user_message.sender_id)
             if dis_thumb is False or dis_thumb is None:
-                thumb_image_path = self._user_db.get_thumbnail(self._user_message.sender_id)
+                thumb_image_path = self._user_db.get_thumbnail(
+                    self._user_message.sender_id)
                 if not thumb_image_path:
                     thumb_image_path = None
         #
         uploader_id = None
         try:
             message_for_progress_display = message
-            
-            data = "upcancel {} {} {}".format(message.chat.id,message.message_id,self._user_message.sender_id)
-            markup = InlineKeyboardMarkup([[InlineKeyboardButton("Cancel Upload", callback_data=data.encode("UTF-8"))]])
+
+            data = "upcancel {} {} {}".format(
+                message.chat.id, message.message_id, self._user_message.sender_id)
+            markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Cancel Upload", callback_data=data.encode("UTF-8"))]])
             message_for_progress_display = await message.reply_text(
                 "**Starting upload of** `{}`".format(os.path.basename(path)),
                 reply_markup=markup
             )
-             
+
             if queue is not None:
                 torlog.info(f"Waiting for the worker here for {file_name}")
                 message_for_progress_display = await message_for_progress_display.edit(f"{message_for_progress_display.text}\nWaiting for uploaders to get free... ")
                 uploader_id = await queue.get()
-                torlog.info(f"Waiting over for the worker here for {file_name} acquired worker {uploader_id}")
-            
+                torlog.info(
+                    f"Waiting over for the worker here for {file_name} acquired worker {uploader_id}")
+
             if ftype == "video" and not force_docs:
                 metadata = extractMetadata(createParser(path))
                 duration = 0
@@ -599,9 +624,9 @@ class TelegramUploader(BaseTask):
                 thumb = None
                 if thumb_image_path is not None and os.path.isfile(thumb_image_path):
                     thumb = thumb_image_path
-                
+
                 # send video
-                
+
                 sent_message = await message.reply_video(
                     video=path,
                     # quote=True,
@@ -639,7 +664,7 @@ class TelegramUploader(BaseTask):
                     title = metadata.get("title")
                 if metadata.has("artist"):
                     artist = metadata.get("artist")
-                
+
                 thumb = None
                 if thumb_image_path is not None and os.path.isfile(thumb_image_path):
                     thumb = thumb_image_path
@@ -677,7 +702,7 @@ class TelegramUploader(BaseTask):
                     thumb = thumb_image_path
                 #
                 # send document
-                
+
                 sent_message = await message.reply_document(
                     document=path,
                     # quote=True,
@@ -705,11 +730,13 @@ class TelegramUploader(BaseTask):
                 torlog.info("Canceled an Upload")
                 try:
                     await message_for_progress_display.edit(f"Failed to upload {e}")
-                except:pass
+                except:
+                    pass
             else:
                 try:
                     await message_for_progress_display.edit(f"Failed to upload {e}")
-                except:pass
+                except:
+                    pass
                 torlog.exception("IN Pyro upload")
         else:
             if message.message_id != message_for_progress_display.message_id:
@@ -718,25 +745,26 @@ class TelegramUploader(BaseTask):
             if queue is not None and uploader_id is not None:
                 await queue.put(uploader_id)
                 torlog.info(f"Freed uploader with id {uploader_id}")
-        #os.remove(path)
+        # os.remove(path)
         if sent_message is None:
             return None
         sent_message = await thonmsg.client.get_messages(sent_message.chat.id, ids=sent_message.message_id)
         try:
             os.remove(path)
-        except:pass
+        except:
+            pass
         return sent_message
 
     async def progress_for_telethon(self, current, total, message, file_name, start, time_out, cancel_msg=None, updb=None):
         now = time.time()
         diff = now - start
-        
+
         if round(diff % time_out) == 0 or current == total:
             do_edit = not get_val("CENTRAL_UPDATE")
             if cancel_msg is not None:
                 # dirty alt. was not able to find something to stop upload
                 # todo inspect with "StopAsyncIteration"
-                if updb.get_cancel_status(cancel_msg.chat_id,cancel_msg.id):
+                if updb.get_cancel_status(cancel_msg.chat_id, cancel_msg.id):
                     raise Exception("cancel the upload")
             percentage = current * 100 / total
             speed = current / diff
@@ -746,14 +774,16 @@ class TelegramUploader(BaseTask):
 
             elapsed_time = human_readable_timedelta(seconds=elapsed_time/1000)
 
-            estimated_total_time = human_readable_timedelta(seconds=estimated_total_time/1000)
-
+            estimated_total_time = human_readable_timedelta(
+                seconds=estimated_total_time/1000)
 
             progress = "[{0}{1}] \nP: {2}%\n".format(
-                ''.join([get_val("COMPLETED_STR") for i in range(math.floor(percentage / 10))]),
-                ''.join([get_val("REMAINING_STR") for i in range(10 - math.floor(percentage / 10))]),
+                ''.join([get_val("COMPLETED_STR")
+                         for i in range(math.floor(percentage / 10))]),
+                ''.join([get_val("REMAINING_STR")
+                         for i in range(10 - math.floor(percentage / 10))]),
                 round(percentage, 2))
-            
+
             tmp = progress + "{0} of {1}\nSpeed: {2}/s\nETA: {3}\nUsing engine: Telethon".format(
                 human_readable_bytes(current),
                 human_readable_bytes(total),
@@ -791,24 +821,24 @@ class TelegramUploader(BaseTask):
         else:
             return
 
-    async def progress_for_pyrogram(self, current,total,ud_type,message,start,time_out,client,cancel_msg=None,updb=None,markup=None):
+    async def progress_for_pyrogram(self, current, total, ud_type, message, start, time_out, client, cancel_msg=None, updb=None, markup=None):
         now = time.time()
         diff = now - start
-        
+
         # too early to update the progress
         if diff < 1:
             return
-        
+
         if round(diff % time_out) == 0 or current == total:
             do_edit = not get_val("CENTRAL_UPDATE")
             if cancel_msg is not None:
                 # dirty alt. was not able to find something to stop upload
                 # todo inspect with "StopAsyncIteration"
                 # IG Open stream will be Garbage Collected
-                if updb.get_cancel_status(cancel_msg.chat.id,cancel_msg.message_id):
+                if updb.get_cancel_status(cancel_msg.chat.id, cancel_msg.message_id):
                     print("Stopping transmission")
                     client.stop_transmission()
-        
+
             # if round(current / total * 100, 0) % 5 == 0:
             percentage = current * 100 / total
             elapsed_time = round(diff)
@@ -817,11 +847,14 @@ class TelegramUploader(BaseTask):
             estimated_total_time = elapsed_time + time_to_completion
 
             elapsed_time = human_readable_timedelta(elapsed_time)
-            estimated_total_time = human_readable_timedelta(estimated_total_time)
+            estimated_total_time = human_readable_timedelta(
+                estimated_total_time)
 
             progress = "[{0}{1}] \nP: {2}%\n".format(
-                ''.join([get_val("COMPLETED_STR") for _ in range(math.floor(percentage / 10))]),
-                ''.join([get_val("REMAINING_STR") for _ in range(10 - math.floor(percentage / 10))]),
+                ''.join([get_val("COMPLETED_STR")
+                         for _ in range(math.floor(percentage / 10))]),
+                ''.join([get_val("REMAINING_STR")
+                         for _ in range(10 - math.floor(percentage / 10))]),
                 round(percentage, 2))
 
             tmp = progress + "{0} of {1}\nSpeed: {2}/s\nETA: {3}\nUsing engine: Pyrogram".format(
@@ -867,8 +900,8 @@ class TelegramUploader(BaseTask):
             num += 1
         else:
             for file in os.listdir(path):
-                if os.path.isdir(os.path.join(path,file)):
-                    num += self.get_num_of_files(os.path.join(path,file))
+                if os.path.isdir(os.path.join(path, file)):
+                    num += self.get_num_of_files(os.path.join(path, file))
                 else:
                     num += 1
         return num
@@ -880,9 +913,9 @@ class TelegramUploader(BaseTask):
         self._is_canceled = True
         if is_admin:
             self._canceled_by = self.ADMIN
-        else: 
+        else:
             self._canceled_by = self.USER
-    
+
     async def get_update(self):
         self._current_update.files = self._total_files
         self._current_update.uploaded_files = self._num_files
@@ -892,9 +925,10 @@ class TelegramUploader(BaseTask):
     def get_error_reason(self):
         return self._error_reason
 
+
 def black_list_exts(file):
     for i in ['!qb']:
         if str(file).lower().endswith(i):
             return True
-    
+
     return False

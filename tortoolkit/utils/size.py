@@ -5,6 +5,7 @@ import logging
 import os
 torlog = logging.getLogger(__name__)
 
+
 def calculate_size(path):
     if path is not None:
         try:
@@ -16,9 +17,10 @@ def calculate_size(path):
             torlog.warning("Size Calculation Failed.")
             return 0
     else:
-        return 0  
+        return 0
 
-def get_size_fl(start_path = '.'):
+
+def get_size_fl(start_path='.'):
     total_size = 0
     for dirpath, _, filenames in os.walk(start_path):
         for f in filenames:

@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
 # (c) YashDK [yash-dk@github]
 
-import asyncio,shlex,os,logging,time
-from typing import Union,Optional,List,Tuple
+import asyncio
+import shlex
+import os
+import logging
+import time
+from typing import Union, Optional, List, Tuple
 
 # ref https://info.nrao.edu/computing/guide/file-access-and-archiving/7zip/7z-7za-command-line-guide
 torlog = logging.getLogger(__name__)
 
 # TODO change the hard coded value of the size from here
 
-async def cli_call(cmd: Union[str,List[str]]) -> Tuple[str,str]:
+
+async def cli_call(cmd: Union[str, List[str]]) -> Tuple[str, str]:
     torlog.info("Got cmd:- "+str(cmd))
-    if isinstance(cmd,str):
+    if isinstance(cmd, str):
         cmd = shlex.split(cmd)
-    elif isinstance(cmd,(list,tuple)):
+    elif isinstance(cmd, (list, tuple)):
         pass
     else:
-        return None,None
+        return None, None
 
     torlog.info("Exc cmd:- "+str(cmd))
-    
+
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stderr=asyncio.subprocess.PIPE,
@@ -27,18 +32,19 @@ async def cli_call(cmd: Union[str,List[str]]) -> Tuple[str,str]:
     )
 
     stdout, stderr = await process.communicate()
-    
+
     stdout = stdout.decode().strip()
     stderr = stderr.decode().strip()
-    
+
     return stdout, stderr, process.returncode
 
-async def split_in_zip(path,size=None):
+
+async def split_in_zip(path, size=None):
     if os.path.exists(path):
         if os.path.isfile(path):
             fname = os.path.basename(path)
             bdir = os.path.dirname(path)
-            bdir = os.path.join(bdir,str(time.time()).replace(".",""))
+            bdir = os.path.join(bdir, str(time.time()).replace(".", ""))
             if not os.path.exists(bdir):
                 os.mkdir(bdir)
 
@@ -46,39 +52,40 @@ async def split_in_zip(path,size=None):
                 size = 1900
             else:
                 size = int(size)
-                size = int(size/(1024*1024)) - 10 #for safe
+                size = int(size/(1024*1024)) - 10  # for safe
             cmd = f'7z a -tzip -mx=0 "{bdir}/{fname}.zip" "{path}" -v{size}m '
 
             _, err, rcode = await cli_call(cmd)
-            
+
             if err:
                 torlog.error(f"Error in zip split {err}")
                 return None
             else:
                 return bdir
-                
+
         else:
             return None
     else:
         return None
 
-async def add_to_zip(path, size = None, split = True, use_rar=False):
+
+async def add_to_zip(path, size=None, split=True, use_rar=False):
     if os.path.exists(path):
         fname = os.path.basename(path)
         bdir = os.path.dirname(path)
-        bdir = os.path.join(bdir,str(time.time()).replace(".",""))
+        bdir = os.path.join(bdir, str(time.time()).replace(".", ""))
         if not os.path.exists(bdir):
             os.mkdir(bdir)
-        
-        bdir = os.path.join(bdir,fname)
+
+        bdir = os.path.join(bdir, fname)
         if not os.path.exists(bdir):
             os.mkdir(bdir)
-        
+
         if size is None:
             size = 1900
         else:
             size = int(size)
-            size = int(size/(1024*1024)) - 10 #for safe
+            size = int(size/(1024*1024)) - 10  # for safe
 
         total_size = get_size(path)
         if total_size > size and split:
@@ -91,9 +98,9 @@ async def add_to_zip(path, size = None, split = True, use_rar=False):
                 cmd = f'rar a -ep1 -m0 "{bdir}/{fname}.rar" "{path}"'
             else:
                 cmd = f'7z a -tzip -mx=0 "{bdir}/{fname}.zip" "{path}"'
-    
+
         _, err, rcode = await cli_call(cmd)
-        
+
         if err:
             torlog.error(f"Error in zip split {err}")
             return None
@@ -102,7 +109,8 @@ async def add_to_zip(path, size = None, split = True, use_rar=False):
     else:
         return None
 
-def get_size(start_path = '.'):
+
+def get_size(start_path='.'):
     total_size = 0
     for dirpath, dirnames, filenames in os.walk(start_path):
         for f in filenames:
@@ -113,21 +121,24 @@ def get_size(start_path = '.'):
 
     return total_size/(1024*1024)
 
+
 async def extract_archive(path, password=""):
     if os.path.exists(path):
         if os.path.isfile(path):
-            valid_exts = (".zip", ".7z", ".tar", ".gzip2", ".iso", ".wim", ".rar", ".tar.gz",".tar.bz2")
+            valid_exts = (".zip", ".7z", ".tar", ".gzip2", ".iso",
+                          ".wim", ".rar", ".tar.gz", ".tar.bz2")
             if str(path).endswith(valid_exts):
-                
+
                 # check userdata
                 userpath = os.path.join(os.getcwd(), "userdata")
                 if not os.path.exists(userpath):
                     os.mkdir(userpath)
-                
-                extpath = os.path.join(userpath, str(time.time()).replace(".",""))
+
+                extpath = os.path.join(userpath, str(
+                    time.time()).replace(".", ""))
                 os.mkdir(extpath)
-                
-                extpath = os.path.join(extpath,os.path.basename(path))
+
+                extpath = os.path.join(extpath, os.path.basename(path))
                 for i in valid_exts:
                     li = extpath.rsplit(i, 1)
                     extpath = "".join(li)
@@ -135,13 +146,13 @@ async def extract_archive(path, password=""):
                 if not os.path.exists(extpath):
                     os.mkdir(extpath)
 
-                if str(path).endswith(("tar","tar.gz","tar.bz2")):
+                if str(path).endswith(("tar", "tar.gz", "tar.bz2")):
                     cmd = f'tar -xvf "{path}" -C "{extpath}" --warning=none'
                 else:
                     cmd = f'7z x -y "{path}" "-o{extpath}" "-p{password}"'
-                
+
                 out, err, rcode = await cli_call(cmd)
-                
+
                 if err:
                     if "Wrong password" in err:
                         return "Wrong Password"
@@ -156,13 +167,14 @@ async def extract_archive(path, password=""):
             return False
     else:
         # None means fetal error and cant be ignored
-        return None 
+        return None
+
 
 def is_archive(path):
-    if str(path).endswith((".zip", "7z", "tar", "gzip2", "iso", "wim", "rar", "tar.gz","tar.bz2")):
+    if str(path).endswith((".zip", "7z", "tar", "gzip2", "iso", "wim", "rar", "tar.gz", "tar.bz2")):
         return True
     else:
         return False
 
-#7z e -y {path} {ext_path}
-#/setpassword jobid password
+# 7z e -y {path} {ext_path}
+# /setpassword jobid password

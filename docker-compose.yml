@@ -1,5 +1,5 @@
 version: "3.3"
-   
+
 services:
   db:
     image: postgres
@@ -14,8 +14,7 @@ services:
     restart: on-failure
     ports:
       - "80:80"
-    depends_on: 
+    depends_on:
       - db
     links:
       - db
-
